@@ -16,33 +16,43 @@ namespace OCR_Windows_Service_Console
 
         public CreateJsonService()
         {
-            aTimer = new System.Timers.Timer(10000);
-            aTimer.Elapsed += new ElapsedEventHandler(Actions);
-            Console.WriteLine("Press the Enter key to exit the program.");
-            Console.ReadLine();
-            //Thread thread = new Thread(Actions);
-            //thread.Start();
+            //aTimer = new System.Timers.Timer(10000);
+            //aTimer.Elapsed += new ElapsedEventHandler(Actions);
+            //Console.WriteLine("Press the Enter key to exit the program.");
+            //Console.ReadLine();
+            CreateJson();
+            CleanUpFiles();
         }
 
-        private static void Actions(object source, ElapsedEventArgs e)
+        private static void CreateJson()
         {
-            var files = new DirectoryInfo(@"C:\WindowsServiceInput\")
-                .GetFiles();
-
-            //var wacther = new FileSystemWatcher();
-
+            var files = new DirectoryInfo(@"C:\WindowsServiceInput\").GetFiles();
             foreach (var file in files)
             {
-                var ocr = new Tesseract();
-                var image = Image.FromFile(file.FullName);
-                ocr.Init(@"..\..\Content\tessdata", "eng", false);
-                var result = ocr.DoOCR((Bitmap)image, Rectangle.Empty);
-                List<string> data = new List<string>();
-                foreach (Word word in result)
-                    data.Add(word.Text);
+                if (!File.Exists(@"C:\WindowsServiceOutput\" + file.Name))
+                {
+                    var ocr = new Tesseract();
+                    var image = Image.FromFile(file.FullName);
+                    ocr.Init(@"..\..\Content\tessdata", "eng", false);
+                    var result = ocr.DoOCR((Bitmap) image, Rectangle.Empty);
+                    List<string> data = new List<string>();
+                    foreach (Word word in result)
+                        data.Add(word.Text);
 
-                string json = JsonConvert.SerializeObject(data.ToArray());
-                System.IO.File.WriteAllText(@"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
+                    string json = JsonConvert.SerializeObject(data.ToArray());
+                    System.IO.File.WriteAllText(
+                        @"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
+                }
+            }
+        }
+
+        private static void CleanUpFiles()
+        {
+            var files = new DirectoryInfo(@"C:\WindowsServiceInput\");
+
+            foreach (FileInfo file in files.GetFiles())
+            {
+                file.Delete();
             }
         }
     }
