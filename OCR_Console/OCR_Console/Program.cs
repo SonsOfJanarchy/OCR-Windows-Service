@@ -1,14 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
-using System.IO.Ports;
-using System.Net.Configuration;
-using System.Net.Mime;
 using Newtonsoft.Json;
 using PV_Doc_Template;
 using tessnet2;
@@ -24,16 +18,7 @@ namespace OCR_Console
 
         private static void CreateJson()
         {
-            //using (Bitmap bitmap = (Bitmap)Image.FromFile("file.jpg"))
-            //{
-            //    using (Bitmap newBitmap = new Bitmap(bitmap))
-            //    {
-            //        newBitmap.SetResolution(300, 300);
-            //        newBitmap.Save("file300.jpg", ImageFormat.Jpeg);
-            //    }
-            //}
-
-            var dataItems = new OCRRawDataModel();
+     var dataItems = new OCRRawDataModel();
             var files = new DirectoryInfo(@"C:\WindowsServiceInput\").GetFiles();
             foreach (var file in files)
             {
@@ -42,16 +27,16 @@ namespace OCR_Console
                     var ocr = new Tesseract();
                     var image = Image.FromFile(file.FullName);
                     var anotherimage = (Bitmap) image;
-                    var getanotherimage = Resize(anotherimage, (10000), (10000), false);
+                    var getanotherimage = Resize(anotherimage, (5000), (5000), false);
                     var bit = (Bitmap) getanotherimage;
                     bit.SetResolution(300,300);
 
-                    //var blackAndWhite = BlackAndWhite(getanotherimage, new Rectangle(0,0, getanotherimage.Width, getanotherimage.Height));
+                    var blackAndWhite = BlackAndWhite(bit, new Rectangle(0,0, getanotherimage.Width, getanotherimage.Height));
                     //getanotherimage.SetResolution(1000, 1000);
-                    getanotherimage.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
+                    //blackAndWhite.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
                     ocr.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,/");
                     ocr.Init(@"..\..\Content\tessdata", "eng", false);
-                    var result = ocr.DoOCR(bit, Rectangle.Empty);
+                    var result = ocr.DoOCR(blackAndWhite, Rectangle.Empty);
                     dataItems.DataList = new List<OCRRawDataModel.RawDataItem>();
 
                     foreach (Word word in result)
