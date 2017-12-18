@@ -9,6 +9,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Net.Configuration;
 using System.Net.Mime;
+using Dynamsoft.Barcode;
 using Newtonsoft.Json;
 using PV_Doc_Template;
 using tessnet2;
@@ -19,7 +20,42 @@ namespace OCR_Console
     {
         static void Main(string[] args)
         {
-            CreateJson();
+            //CreateJson();
+            ReadBarCode();
+        }
+
+        private static void ReadBarCode()
+        {
+            var reader = new BarcodeReader();
+            string dbrLicenseKeys = "t0068MgAAAE/4ptMgtvYh/3/aHYqyZSg9d1L+JaBCahbvfx+h4pmOrJUH1XLf+UG9o+yhRBil3A3DocqUs7B7uUkWBm8BdD0=";
+            string dntLicenseKeys = "t0068MgAAALldOkIqmvuL1dexYI8Jhxh+fkxAhf+naIiM0IGi1dLzDdLMcnAsG0GdcxrH9vwSx4/amTOZC6vGeEml9Vm3lLE=";
+            reader.LicenseKeys = dbrLicenseKeys;
+            ReaderOptions option = new ReaderOptions();
+            option.BarcodeFormats = BarcodeFormat.PDF417;
+            //option.MaxBarcodesToReadPerPage = 100;
+            //option.BarcodeColorMode = BarcodeColorMode.BCM_DarkAndLight;
+            reader.ReaderOptions = option;
+            var files = new DirectoryInfo(@"C:\WindowsServiceInput\").GetFiles();
+            foreach (var file in files)
+            {
+                var image = Image.FromFile(file.FullName);
+                var anotherimage = (Bitmap)image;
+                BarcodeResult[] result = reader.DecodeFile(file.FullName);
+                var data = result.FirstOrDefault(x => x.BarcodeFormat == BarcodeFormat.PDF417).BarcodeText;
+
+                IdentificationReturnModel model = new IdentificationReturnModel();
+
+                var strings = data.Split();
+
+                //var barcodetext = data.BarcodeText.Count(y => y == 'n');
+                //var json = JsonConvert.SerializeObject(result);
+            }
+            
+        }
+
+        private static void ReadBarCodeInfo(BarcodeResult[] result)
+        {
+            
         }
 
         private static void CreateJson()
@@ -42,13 +78,13 @@ namespace OCR_Console
                     var ocr = new Tesseract();
                     var image = Image.FromFile(file.FullName);
                     var anotherimage = (Bitmap) image;
-                    var getanotherimage = Resize(anotherimage, (10000), (10000), false);
+                    var getanotherimage = Resize(anotherimage, (3000), (3000), false);
                     var bit = (Bitmap) getanotherimage;
                     bit.SetResolution(300,300);
 
                     //var blackAndWhite = BlackAndWhite(getanotherimage, new Rectangle(0,0, getanotherimage.Width, getanotherimage.Height));
                     //getanotherimage.SetResolution(1000, 1000);
-                    getanotherimage.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
+                    //getanotherimage.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
                     ocr.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,/");
                     ocr.Init(@"..\..\Content\tessdata", "eng", false);
                     var result = ocr.DoOCR(bit, Rectangle.Empty);
@@ -62,10 +98,11 @@ namespace OCR_Console
                         item.LineIndex = word.LineIndex;
                         dataItems.DataList.Add(item);
                     }
+                    var anotherjson = JsonConvert.SerializeObject(dataItems);
                     
                     var mapper = new IdentificationCardMapper();
-                    var mappedObjects = mapper.MapDriversLicenseData(dataItems);
-                    var json = JsonConvert.SerializeObject(mappedObjects);
+                    //var mappedObjects = mapper.MapDriversLicenseData(dataItems);
+                    var json = JsonConvert.SerializeObject(dataItems);
                     //string json2 = JsonConvert.SerializeObject(data.ToArray());
                     System.IO.File.WriteAllText(@"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
 
