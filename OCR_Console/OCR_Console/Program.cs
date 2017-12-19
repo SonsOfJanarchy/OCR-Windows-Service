@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using Dynamsoft.Barcode;
 using Newtonsoft.Json;
 using PV_Doc_Template;
@@ -12,39 +14,106 @@ namespace OCR_Console
 {
     class Program
     {
+        private static System.IO.FileSystemWatcher m_BarCodeWatcher = new System.IO.FileSystemWatcher(@"C:\BarCodeServiceInput\");
+        static ManualResetEvent _quitEvent = new ManualResetEvent(false);
+
         static void Main(string[] args)
         {
+            Console.CancelKeyPress += (sender, eArgs) => {
+                _quitEvent.Set();
+                eArgs.Cancel = true;
+            };
             //CreateJson();
-            ReadBarCode();
+            
+            m_BarCodeWatcher.EnableRaisingEvents = true;
+            m_BarCodeWatcher.Created += (o, eventArgs) => ReadBarCode(o, eventArgs);
+
+            _quitEvent.WaitOne();
         }
 
-        private static void ReadBarCode()
+        private static void ReadBarCode(Object sender, FileSystemEventArgs e)
         {
+            System.Threading.Thread.Sleep(2000);
             var reader = new BarcodeReader();
             string dbrLicenseKeys = "t0068MgAAAE/4ptMgtvYh/3/aHYqyZSg9d1L+JaBCahbvfx+h4pmOrJUH1XLf+UG9o+yhRBil3A3DocqUs7B7uUkWBm8BdD0=";
-            string dntLicenseKeys = "t0068MgAAALldOkIqmvuL1dexYI8Jhxh+fkxAhf+naIiM0IGi1dLzDdLMcnAsG0GdcxrH9vwSx4/amTOZC6vGeEml9Vm3lLE=";
             reader.LicenseKeys = dbrLicenseKeys;
             ReaderOptions option = new ReaderOptions();
             option.BarcodeFormats = BarcodeFormat.PDF417;
-            //option.MaxBarcodesToReadPerPage = 100;
-            //option.BarcodeColorMode = BarcodeColorMode.BCM_DarkAndLight;
             reader.ReaderOptions = option;
-            var files = new DirectoryInfo(@"C:\WindowsServiceInput\").GetFiles();
+            var files = new DirectoryInfo(@"C:\BarCodeServiceInput\").GetFiles();
+
             foreach (var file in files)
             {
-                var image = Image.FromFile(file.FullName);
-                var anotherimage = (Bitmap)image;
-                BarcodeResult[] result = reader.DecodeFile(file.FullName);
-                var data = result.FirstOrDefault(x => x.BarcodeFormat == BarcodeFormat.PDF417).BarcodeText;
+                if (!File.Exists(@"C:\WindowsServiceOutput\" + file.Name))
+                {
+                    BarcodeResult[] result = reader.DecodeFile(file.FullName);
+                    if (result == null)
+                    {
+                        file.Delete();
+                        return;
+                    }
+                    var data = result.FirstOrDefault(x => x.BarcodeFormat == BarcodeFormat.PDF417).BarcodeText;
+                    IdentificationReturnModel model = new IdentificationReturnModel();
 
-                IdentificationReturnModel model = new IdentificationReturnModel();
+                    var strings = data.Split(new string[] {"\n"}, StringSplitOptions.None);
+                    foreach (var str in strings)
+                    {
+                        if (str.StartsWith("DBB"))
+                        {
+                            var bday = str.Replace("DBB", "");
+                            bday = bday.Insert(4, "/");
+                            bday = bday.Insert(7, "/");
+                            model.dateofBirth = Convert.ToDateTime(bday);
+                        }
+                        else if (str.Contains("DAA"))
+                        {
+                            var split = str.Split(',');
+                            if (split.Any())
+                            {
+                                var beginIndex = split[0].IndexOf("DAA", StringComparison.Ordinal) + 3;
+                                model.lastName = split[0].Substring(beginIndex, (split[0].Length - beginIndex));
+                            }
 
-                var strings = data.Split();
+                            if (split.Count() > 1)
+                            {
+                                model.firstName = split[1];
+                            }
+                            if (split.Count() > 2)
+                            {
+                                model.middleName = split[2];
+                            }
+                        }
+                        else if (str.StartsWith("DAG"))
+                        {
+                            model.address1 = str.Replace("DAG", "");
+                        }
+                        else if (str.StartsWith("DAI"))
+                        {
+                            model.city = str.Replace("DAI", "");
+                        }
+                        else if (str.StartsWith("DAJ"))
+                        {
+                            model.state = str.Replace("DAJ", "");
+                        }
+                        else if (str.StartsWith("DAK"))
+                        {
+                            var zip = str.Replace("DAK", "");
+                            zip = zip.TrimEnd();
+                            zip = zip.Insert(5, "-");
+                            model.zip = zip;
+                        }
+                        else if (str.StartsWith("DBC"))
+                        {
+                            model.sex = str.Replace("DBC", "");
+                        }
+                    }
 
-                //var barcodetext = data.BarcodeText.Count(y => y == 'n');
-                //var json = JsonConvert.SerializeObject(result);
+                    var json = JsonConvert.SerializeObject(model);
+                    System.IO.File.WriteAllText(
+                        @"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
+                }
+                file.Delete();
             }
-            
         }
 
         private static void ReadBarCodeInfo(BarcodeResult[] result)
@@ -54,8 +123,8 @@ namespace OCR_Console
 
         private static void CreateJson()
         {
-     var dataItems = new OCRRawDataModel();
-            var files = new DirectoryInfo(@"C:\WindowsServiceInput\").GetFiles();
+            var dataItems = new OCRRawDataModel();
+            var files = new DirectoryInfo(@"C:\OcrServiceInput\").GetFiles();
             foreach (var file in files)
             {
                 if (!File.Exists(@"C:\WindowsServiceOutput\" + file.Name))
@@ -86,14 +155,12 @@ namespace OCR_Console
                     var anotherjson = JsonConvert.SerializeObject(dataItems);
                     
                     var mapper = new IdentificationCardMapper();
-                    //var mappedObjects = mapper.MapDriversLicenseData(dataItems);
                     var json = JsonConvert.SerializeObject(dataItems);
-                    //string json2 = JsonConvert.SerializeObject(data.ToArray());
                     System.IO.File.WriteAllText(@"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
 
                     image.Dispose();
                 }
-                //file.Delete();
+                file.Delete();
             }
             
         }
