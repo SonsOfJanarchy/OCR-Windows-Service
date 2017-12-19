@@ -130,18 +130,17 @@ namespace OCR_Console
                 if (!File.Exists(@"C:\WindowsServiceOutput\" + file.Name))
                 {
                     var ocr = new Tesseract();
-                    var image = Image.FromFile(file.FullName);
-                    var anotherimage = (Bitmap) image;
-                    var getanotherimage = Resize(anotherimage, (5000), (5000), false);
-                    var bit = (Bitmap) getanotherimage;
+                    var bitMapImage = (Bitmap) Image.FromFile(file.FullName);
+                    var resizedImage = Resize(bitMapImage, (3000), (3000), false);
+                    var bit = (Bitmap)resizedImage;
                     bit.SetResolution(300,300);
 
-                    var blackAndWhite = BlackAndWhite(bit, new Rectangle(0,0, getanotherimage.Width, getanotherimage.Height));
+                    var blackAndWhiteImage = BlackAndWhite(bit, new Rectangle(0,0, resizedImage.Width, resizedImage.Height));
                     //getanotherimage.SetResolution(1000, 1000);
-                    //blackAndWhite.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
+                    blackAndWhiteImage.Save(@"C:\WindowsServiceOutput\BlackAndWhite.bmp");
                     ocr.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.,/");
                     ocr.Init(@"..\..\Content\tessdata", "eng", false);
-                    var result = ocr.DoOCR(blackAndWhite, Rectangle.Empty);
+                    var result = ocr.DoOCR(blackAndWhiteImage, Rectangle.Empty);
                     dataItems.DataList = new List<OCRRawDataModel.RawDataItem>();
 
                     foreach (Word word in result)
@@ -155,10 +154,11 @@ namespace OCR_Console
                     var anotherjson = JsonConvert.SerializeObject(dataItems);
                     
                     var mapper = new IdentificationCardMapper();
+                    var mappedObjects = mapper.MapDriversLicenseData(dataItems);
                     var json = JsonConvert.SerializeObject(dataItems);
                     System.IO.File.WriteAllText(@"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
 
-                    image.Dispose();
+                    bitMapImage.Dispose();
                 }
                 file.Delete();
             }
