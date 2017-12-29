@@ -87,7 +87,7 @@ namespace OCR_Console
                     
                     var mapper = new IdentificationCardMapper();
                     var mappedObjects = mapper.MapDriversLicenseData(dataItems);
-                    var json = JsonConvert.SerializeObject(dataItems);
+                    var json = JsonConvert.SerializeObject(mappedObjects);
                     //string json2 = JsonConvert.SerializeObject(data.ToArray());
                     System.IO.File.WriteAllText(@"C:\WindowsServiceOutput\" + Path.GetFileNameWithoutExtension(file.Name) + ".json", json);
 
